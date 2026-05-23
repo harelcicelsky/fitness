@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/schema";
 import type { Exercise } from "../types";
@@ -62,7 +63,7 @@ export function ExercisePicker({
     setQuery("");
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex flex-col bg-neutral-950/95 backdrop-blur"
       style={{ paddingTop: "var(--safe-top)", paddingBottom: "var(--safe-bottom)" }}
@@ -131,6 +132,7 @@ export function ExercisePicker({
           })}
         </ul>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
