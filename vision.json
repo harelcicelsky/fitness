@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "mode": "personal",
+  "founder": {
+    "name": "Harel"
+  },
+  "product": {
+    "name": "Workout Tracker",
+    "oneLiner": "A local-first PWA for logging workouts — strength training and cardio — with progress charts and PR tracking.",
+    "platform": "web-pwa",
+    "magicMoment": "Open the app on your phone, tap your last template, log sets in seconds, see your weight on the bar tick up over weeks."
+  },
+  "audience": {
+    "primary": "Self (Harel) — personal use first",
+    "futurePublic": "Lifters who want a fast, private, no-account, no-paywall log"
+  },
+  "scope": {
+    "phase": "personal-mvp",
+    "willLaunchPublicly": "maybe — decide after personal use"
+  },
+  "stack": {
+    "frontend": "React 18 + Vite + TypeScript",
+    "styling": "Tailwind CSS",
+    "storage": "IndexedDB via Dexie.js",
+    "charts": "Recharts",
+    "pwa": "vite-plugin-pwa",
+    "hosting": "Vercel or Netlify (free tier, private repo)",
+    "auth": "none",
+    "payments": "none",
+    "backend": "none"
+  },
+  "repo": {
+    "name": "workout-tracker",
+    "visibility": "private",
+    "host": "GitHub"
+  },
+  "preferences": {
+    "units": "kg",
+    "features": {
+      "rpeRir": true,
+      "supersets": true,
+      "dropSets": true,
+      "cardio": true,
+      "bodyWeight": true,
+      "templates": true,
+      "restTimer": true,
+      "exportImport": true,
+      "darkMode": true
+    }
+  },
+  "tooling": {
+    "codingAgent": "Claude Code"
+  }
+}
