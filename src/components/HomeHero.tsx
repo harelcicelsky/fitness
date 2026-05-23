@@ -122,7 +122,9 @@ export function HomeHero({ onStart }: Props) {
             )}
           </div>
           <h1 className="text-4xl font-bold leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-            Time to lift.
+            {profile?.name
+              ? `Welcome back, ${profile.name}.`
+              : "Time to lift."}
           </h1>
           <p className="max-w-sm text-sm text-neutral-300 drop-shadow">
             {stats?.lastWorkoutDate

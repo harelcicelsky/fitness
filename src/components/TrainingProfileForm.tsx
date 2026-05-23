@@ -101,6 +101,7 @@ const EXPERIENCE: { value: Experience; label: string; blurb: string }[] = [
 const SESSION_LENGTHS = [30, 45, 60, 75, 90];
 
 export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }: Props) {
+  const [name, setName] = useState<string>(initial?.name ?? "");
   const [workoutsPerWeek, setWorkoutsPerWeek] = useState<number>(initial?.workoutsPerWeek ?? 4);
   const [splitType, setSplitType] = useState<SplitType>(initial?.splitType ?? "ppl");
   const [splitPattern, setSplitPattern] = useState<string>(initial?.splitPattern ?? "ABC");
@@ -147,6 +148,7 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
     const profile: UserProfile = {
       id: "profile",
       completedAt: Date.now(),
+      name: name.trim(),
       workoutsPerWeek,
       splitType,
       splitPattern: splitPattern || "FULL",
@@ -186,14 +188,29 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </h2>
         <p className="text-sm text-neutral-400">
           {isOnboarding
-            ? "Five quick questions. Helps me tailor recommendations to your routine. You can change everything later."
+            ? "A few quick questions. Helps me tailor recommendations to your routine. You can change everything later."
             : "Update anything that's changed. Recommendations recalc automatically."}
         </p>
       </header>
 
-      {/* 1. Workouts per week */}
+      {/* 1. Name */}
       <Section
         number={1}
+        title="What's your name?"
+        hint="So we can greet you properly."
+      >
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your first name"
+          className="input text-base"
+          autoComplete="given-name"
+        />
+      </Section>
+
+      {/* 2. Workouts per week */}
+      <Section
+        number={2}
         title="How many workouts per week?"
         hint="Realistic average — not the dream."
       >
@@ -217,9 +234,9 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 2. Split */}
+      {/* 3. Split */}
       <Section
-        number={2}
+        number={3}
         title="What's your training split?"
         hint="ABC means a 3-day rotation. AABC means day A twice, then B, then C."
       >
@@ -276,8 +293,8 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         )}
       </Section>
 
-      {/* 3. Goal */}
-      <Section number={3} title="Primary goal?">
+      {/* 4. Goal */}
+      <Section number={4} title="Primary goal?">
         <div className="grid gap-2 sm:grid-cols-2">
           {GOALS.map((g) => {
             const active = goal === g.value;
@@ -299,8 +316,8 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 4. Experience */}
-      <Section number={4} title="Lifting experience?">
+      {/* 5. Experience */}
+      <Section number={5} title="Lifting experience?">
         <div className="space-y-2">
           {EXPERIENCE.map((e) => {
             const active = experience === e.value;
@@ -324,8 +341,8 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 5. Session length */}
-      <Section number={5} title="Target session length?">
+      {/* 6. Session length */}
+      <Section number={6} title="Target session length?">
         <div className="grid grid-cols-5 gap-2">
           {SESSION_LENGTHS.map((m) => {
             const active = sessionLengthMin === m;
@@ -346,9 +363,9 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 6. Nutrition phase */}
+      {/* 7. Nutrition phase */}
       <Section
-        number={6}
+        number={7}
         title="What's your current phase?"
         hint="Drives the AI coach. You can change phases anytime as your plan shifts."
       >
@@ -376,9 +393,9 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 7. Body weight + target */}
+      {/* 8. Body weight + target */}
       <Section
-        number={7}
+        number={8}
         title="Body weight & target"
         hint="Optional — but accuracy unlocks weight-trend coaching. You can update these anytime."
       >
@@ -407,9 +424,9 @@ export function TrainingProfileForm({ initial, isOnboarding, onCancel, onSaved }
         </div>
       </Section>
 
-      {/* 8. Avatar */}
+      {/* 9. Avatar */}
       <Section
-        number={8}
+        number={9}
         title="Build your avatar"
         hint="It'll grow muscles as you stick to your training. You can edit it anytime."
       >

@@ -129,6 +129,7 @@ export interface AvatarLook {
 export interface UserProfile {
   id: "profile";
   completedAt: number | null;
+  name: string;                  // user's first name
   workoutsPerWeek: number;       // 1-7
   splitType: SplitType;
   splitPattern: string;          // e.g. "FULL", "AB", "ABC", "ABCABC", custom letters
