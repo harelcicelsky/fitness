@@ -75,7 +75,7 @@ export function HomeHero({ onStart }: Props) {
         //   3. Radial fallback if the image is missing
         backgroundImage:
           "linear-gradient(to bottom, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.55) 50%, rgba(10,10,10,0.95) 100%)," +
-          "url('/hero.jpg')," +
+          `url('${import.meta.env.BASE_URL}hero.jpg'),` +
           "radial-gradient(ellipse at center, #1a1a1a 0%, #050505 80%)",
         backgroundSize: "cover, cover, cover",
         backgroundPosition: "center, center, center",

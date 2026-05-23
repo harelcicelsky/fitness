@@ -37,7 +37,7 @@ export default function App() {
         style={{
           backgroundImage:
             "linear-gradient(180deg, rgba(5,5,5,0.4) 0%, rgba(5,5,5,0.5) 30%, rgba(5,5,5,0.75) 60%, rgba(5,5,5,0.92) 85%, rgba(5,5,5,1) 100%)," +
-            "url('/gym-bg.png')",
+            `url('${import.meta.env.BASE_URL}gym-bg.png')`,
           backgroundSize: "cover, cover",
           backgroundPosition: "center, center bottom",
           backgroundRepeat: "no-repeat",

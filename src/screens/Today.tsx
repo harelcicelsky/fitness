@@ -127,7 +127,7 @@ export function Today() {
         style={{
           backgroundImage:
             "linear-gradient(180deg, rgba(5,5,5,0.65) 0%, rgba(5,5,5,0.80) 40%, rgba(5,5,5,0.95) 70%, rgba(5,5,5,1) 100%)," +
-            "url('/hero.jpg')," +
+            `url('${import.meta.env.BASE_URL}hero.jpg'),` +
             "radial-gradient(ellipse at 50% 20%, #111 0%, #050505 80%)",
           backgroundSize: "cover, cover, cover",
           backgroundPosition: "center top, center top, center",

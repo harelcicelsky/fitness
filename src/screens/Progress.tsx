@@ -84,7 +84,7 @@ export function Progress() {
         style={{
           backgroundImage:
             "linear-gradient(180deg, rgba(5,5,5,0.45) 0%, rgba(5,5,5,0.55) 30%, rgba(5,5,5,0.78) 60%, rgba(5,5,5,0.95) 85%, rgba(5,5,5,1) 100%)," +
-            "url('/image-1779575796982.webp')",
+            `url('${import.meta.env.BASE_URL}image-1779575796982.webp')`,
           backgroundSize: "cover, cover",
           backgroundPosition: "center, center top",
           backgroundRepeat: "no-repeat",
