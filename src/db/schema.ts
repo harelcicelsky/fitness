@@ -9,6 +9,7 @@ import type {
   Template,
   Settings,
   UserProfile,
+  Meal,
 } from "../types";
 import { seedExercises } from "./seed";
 
@@ -22,6 +23,7 @@ export class WorkoutDB extends Dexie {
   templates!: Table<Template, string>;
   settings!: Table<Settings, string>;
   profile!: Table<UserProfile, string>;
+  meals!: Table<Meal, string>;
 
   constructor() {
     super("workout-tracker");
@@ -124,6 +126,20 @@ export class WorkoutDB extends Dexie {
             if (p.heightCm === undefined) p.heightCm = null;
           });
       });
+
+    // v6: add meals table for meal scanning / nutrition tracking.
+    this.version(6).stores({
+      exercises: "id, name, category",
+      workouts: "id, date, startedAt",
+      blocks: "id, workoutId, order",
+      sets: "id, workoutId, blockId, exerciseId, parentSetId, completedAt",
+      cardioSessions: "id, workoutId, blockId, exerciseId, completedAt",
+      bodyWeight: "id, date, recordedAt",
+      templates: "id, name",
+      settings: "id",
+      profile: "id",
+      meals: "id, date, mealType, createdAt",
+    });
   }
 }
 

@@ -144,4 +144,45 @@ export interface UserProfile {
   heightCm: number | null;           // optional — used for BMI hints
 }
 
-export type ScreenName = "today" | "history" | "progress" | "templates" | "settings";
+// ============================================================================
+// Meal / Nutrition types
+// ============================================================================
+
+export interface DetectedFood {
+  name: string;
+  portion: string;          // e.g. "1 cup", "150g", "1 medium"
+  confidence: number;       // 0-1
+  calories: number;
+  protein: number;          // grams
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;           // mg
+}
+
+export interface MealNutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;
+  healthScore: number;      // 1-10
+}
+
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
+export interface Meal {
+  id: string;
+  date: string;             // YYYY-MM-DD
+  mealType: MealType;
+  imageData: string;        // base64 data-url (compressed JPEG)
+  foods: DetectedFood[];
+  totals: MealNutrition;
+  notes: string;
+  createdAt: number;
+}
+
+export type ScreenName = "today" | "history" | "progress" | "nutrition" | "templates" | "settings";

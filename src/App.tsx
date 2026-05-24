@@ -4,6 +4,7 @@ import { NavBar } from "./components/NavBar";
 import { Today } from "./screens/Today";
 import { History } from "./screens/History";
 import { Progress } from "./screens/Progress";
+import { Nutrition } from "./screens/Nutrition";
 import { Templates } from "./screens/Templates";
 import { Settings as SettingsScreen } from "./screens/Settings";
 import { db, ensureInit } from "./db/schema";
@@ -70,6 +71,7 @@ export default function App() {
       {/* ══════ MAIN CONTENT ══════ */}
       <main className="relative z-10 flex-1 overflow-y-auto pb-24">
         {screen === "today" && <Today />}
+        {screen === "nutrition" && <Nutrition />}
         {screen === "history" && <History />}
         {screen === "progress" && <Progress />}
         {screen === "templates" && <Templates />}

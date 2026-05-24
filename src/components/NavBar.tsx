@@ -92,8 +92,30 @@ function ClipboardIcon({ className }: IconProps) {
   );
 }
 
+function NutritionIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2a5 5 0 0 1 5 5v3a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7a5 5 0 0 1 5-5Z" />
+      <path d="M8 11v5a4 4 0 0 0 8 0v-5" />
+      <path d="M12 16v5" />
+      <path d="M8 21h8" />
+    </svg>
+  );
+}
+
 const tabs: { id: ScreenName; label: string; Icon: (p: IconProps) => JSX.Element }[] = [
   { id: "today", label: "Today", Icon: DumbbellIcon },
+  { id: "nutrition", label: "Nutrition", Icon: NutritionIcon },
   { id: "history", label: "History", Icon: CalendarIcon },
   { id: "progress", label: "Progress", Icon: TrendIcon },
   { id: "templates", label: "Templates", Icon: ClipboardIcon },
