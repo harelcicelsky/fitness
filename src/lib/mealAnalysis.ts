@@ -115,8 +115,8 @@ export function clearStoredConfig() {
 // ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
 
 async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
-  // Try current Gemini models in order of preference
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+  // Try current Gemini models — only fall back if model doesn't exist
+  const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
   let lastError = "";
 
   for (const model of models) {
@@ -145,20 +145,32 @@ async function analyzeWithGemini(base64: string, mimeType: string, apiKey: strin
 
       if (!response.ok) {
         const errBody = await response.text().catch(() => "");
-        // Parse the error for a friendly message
-        if (response.status === 400 || response.status === 403) {
-          if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
-            throw new Error("INVALID_API_KEY");
-          }
-        }
-        // Try extracting error message from JSON response
+
+        // Parse the error details
+        let errMessage = `HTTP ${response.status}`;
         try {
           const errJson = JSON.parse(errBody);
-          lastError = errJson?.error?.message || `HTTP ${response.status}`;
-        } catch {
-          lastError = `HTTP ${response.status}`;
+          errMessage = errJson?.error?.message || errMessage;
+        } catch { /* use default */ }
+
+        // Invalid API key — stop immediately
+        if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
+          throw new Error("INVALID_API_KEY");
         }
-        continue; // try next model
+
+        // Rate limit / quota exceeded — stop immediately, don't burn more quota
+        if (response.status === 429 || errBody.includes("quota") || errBody.includes("rate limit")) {
+          throw new Error("You've hit the free API rate limit. Wait 1 minute and try again.");
+        }
+
+        // Model not found — try next model
+        if (response.status === 404 || errBody.includes("not found")) {
+          lastError = errMessage;
+          continue;
+        }
+
+        // Any other error — stop, don't retry
+        throw new Error(errMessage);
       }
 
       const data = await response.json();
@@ -176,8 +188,9 @@ async function analyzeWithGemini(base64: string, mimeType: string, apiKey: strin
 
       return parseJsonResponse(text);
     } catch (e) {
-      if (e instanceof Error && (e.message === "INVALID_API_KEY" || e.message.includes("safety"))) {
-        throw e; // Don't retry these
+      if (e instanceof Error) {
+        // Don't retry errors that aren't "model not found"
+        if (e.message !== lastError) throw e;
       }
       lastError = e instanceof Error ? e.message : "Unknown error";
       continue;
