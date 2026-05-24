@@ -115,8 +115,8 @@ export function clearStoredConfig() {
 // ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
 
 async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
-  // Try gemini-2.0-flash first, fall back to gemini-1.5-flash
-  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  // Try current Gemini models in order of preference
+  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
   let lastError = "";
 
   for (const model of models) {
