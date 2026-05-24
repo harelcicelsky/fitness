@@ -114,39 +114,76 @@ export function clearStoredConfig() {
 // ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
 
 async function analyzeWithGemini(base64: string, apiKey: string): Promise<DetectedFood[]> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: NUTRITION_PROMPT },
-              { inlineData: { mimeType: "image/jpeg", data: base64 } },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2048,
-        },
-      }),
-    },
-  );
+  // Try gemini-2.0-flash first, fall back to gemini-1.5-flash
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
+  let lastError = "";
 
-  if (!response.ok) {
-    const err = await response.text().catch(() => "");
-    if (response.status === 400 && err.includes("API_KEY")) {
-      throw new Error("INVALID_API_KEY");
+  for (const model of models) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: NUTRITION_PROMPT },
+                  { inlineData: { mimeType: "image/jpeg", data: base64 } },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 2048,
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => "");
+        // Parse the error for a friendly message
+        if (response.status === 400 || response.status === 403) {
+          if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
+            throw new Error("INVALID_API_KEY");
+          }
+        }
+        // Try extracting error message from JSON response
+        try {
+          const errJson = JSON.parse(errBody);
+          lastError = errJson?.error?.message || `HTTP ${response.status}`;
+        } catch {
+          lastError = `HTTP ${response.status}`;
+        }
+        continue; // try next model
+      }
+
+      const data = await response.json();
+
+      // Check for blocked / empty responses
+      if (data.candidates?.[0]?.finishReason === "SAFETY") {
+        throw new Error("Image was blocked by safety filters. Try a different photo.");
+      }
+
+      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      if (!text) {
+        lastError = "Empty response from AI";
+        continue;
+      }
+
+      return parseJsonResponse(text);
+    } catch (e) {
+      if (e instanceof Error && (e.message === "INVALID_API_KEY" || e.message.includes("safety"))) {
+        throw e; // Don't retry these
+      }
+      lastError = e instanceof Error ? e.message : "Unknown error";
+      continue;
     }
-    throw new Error(`Gemini API error: ${response.status}`);
   }
 
-  const data = await response.json();
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  return parseJsonResponse(text);
+  throw new Error(lastError || "All Gemini models failed");
 }
 
 // ── OpenAI Vision ───────────────────────────────────────────────────────────

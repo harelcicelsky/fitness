@@ -55,7 +55,6 @@ export function Nutrition() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       if (msg === "NO_API_KEY") {
-        // No key configured — show setup, keep the image for after
         pendingImage.current = file;
         setShowSetup(true);
       } else if (msg === "INVALID_API_KEY") {
@@ -63,7 +62,8 @@ export function Nutrition() {
       } else if (msg === "NO_FOODS_DETECTED") {
         setScanError("Couldn't detect any food in this image. Try a clearer photo.");
       } else {
-        setScanError("Analysis failed. Check your connection and try again.");
+        // Show the real error so we can debug
+        setScanError(`Analysis failed: ${msg}`);
       }
     } finally {
       setScanning(false);
