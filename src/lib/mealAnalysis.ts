@@ -9,7 +9,7 @@
  */
 
 import type { DetectedFood, MealNutrition } from "../types";
-import { dataUrlToBase64 } from "./imageUtils";
+import { dataUrlToBase64, getMimeType } from "./imageUtils";
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -63,13 +63,14 @@ export async function analyzeMeal(imageDataUrl: string): Promise<AnalysisResult>
   }
 
   const base64 = dataUrlToBase64(imageDataUrl);
+  const mimeType = getMimeType(imageDataUrl);
 
   let foods: DetectedFood[];
 
   if (config.provider === "gemini") {
-    foods = await analyzeWithGemini(base64, config.apiKey);
+    foods = await analyzeWithGemini(base64, mimeType, config.apiKey);
   } else {
-    foods = await analyzeWithOpenAI(base64, config.apiKey);
+    foods = await analyzeWithOpenAI(base64, mimeType, config.apiKey);
   }
 
   // Validate and clean up the results
@@ -113,7 +114,7 @@ export function clearStoredConfig() {
 
 // ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
 
-async function analyzeWithGemini(base64: string, apiKey: string): Promise<DetectedFood[]> {
+async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
   // Try gemini-2.0-flash first, fall back to gemini-1.5-flash
   const models = ["gemini-2.0-flash", "gemini-1.5-flash"];
   let lastError = "";
@@ -130,7 +131,7 @@ async function analyzeWithGemini(base64: string, apiKey: string): Promise<Detect
               {
                 parts: [
                   { text: NUTRITION_PROMPT },
-                  { inlineData: { mimeType: "image/jpeg", data: base64 } },
+                  { inlineData: { mimeType, data: base64 } },
                 ],
               },
             ],
@@ -188,7 +189,7 @@ async function analyzeWithGemini(base64: string, apiKey: string): Promise<Detect
 
 // ── OpenAI Vision ───────────────────────────────────────────────────────────
 
-async function analyzeWithOpenAI(base64: string, apiKey: string): Promise<DetectedFood[]> {
+async function analyzeWithOpenAI(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -207,7 +208,7 @@ async function analyzeWithOpenAI(base64: string, apiKey: string): Promise<Detect
             { type: "text", text: "Analyze this meal photo." },
             {
               type: "image_url",
-              image_url: { url: `data:image/jpeg;base64,${base64}`, detail: "low" },
+              image_url: { url: `data:${mimeType};base64,${base64}`, detail: "low" },
             },
           ],
         },
