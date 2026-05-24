@@ -4,10 +4,10 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { v4 as uuid } from "uuid";
 import { db } from "../db/schema";
 import { compressImage } from "../lib/imageUtils";
-import { analyzeMeal, computeTotals } from "../lib/mealAnalysis";
+import { analyzeMeal, computeTotals, getStoredConfig, setStoredConfig, clearStoredConfig } from "../lib/mealAnalysis";
 import { MacroRing } from "../components/MacroRing";
 import { formatDate } from "../lib/format";
-import type { AnalysisResult } from "../lib/mealAnalysis";
+import type { AnalysisResult, AiProvider } from "../lib/mealAnalysis";
 import type { DetectedFood, Meal, MealType } from "../types";
 
 // ============================================================================
@@ -21,6 +21,12 @@ export function Nutrition() {
     analysis: AnalysisResult;
   } | null>(null);
   const [detailMealId, setDetailMealId] = useState<string | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [hasKey, setHasKey] = useState(() => !!getStoredConfig());
+
+  // Pending image to process after key setup
+  const pendingImage = useRef<File | Blob | null>(null);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -39,20 +45,45 @@ export function Nutrition() {
   // Daily targets (rough defaults — could be made configurable)
   const targets = { calories: 2200, protein: 160, carbs: 250, fat: 70 };
 
-  const handleImageReady = useCallback(async (file: File | Blob) => {
+  const processImage = useCallback(async (file: File | Blob) => {
     setScanning(true);
+    setScanError(null);
     try {
       const imageData = await compressImage(file);
       const analysis = await analyzeMeal(imageData);
-      // Small delay for the animation to feel premium
-      await new Promise((r) => setTimeout(r, 600));
       setResult({ imageData, analysis });
-    } catch {
-      // handled in UI
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg === "NO_API_KEY") {
+        // No key configured — show setup, keep the image for after
+        pendingImage.current = file;
+        setShowSetup(true);
+      } else if (msg === "INVALID_API_KEY") {
+        setScanError("Invalid API key. Tap the key icon to update it.");
+      } else if (msg === "NO_FOODS_DETECTED") {
+        setScanError("Couldn't detect any food in this image. Try a clearer photo.");
+      } else {
+        setScanError("Analysis failed. Check your connection and try again.");
+      }
     } finally {
       setScanning(false);
     }
   }, []);
+
+  const handleImageReady = useCallback((file: File | Blob) => {
+    processImage(file);
+  }, [processImage]);
+
+  const handleKeySetupDone = useCallback(() => {
+    setShowSetup(false);
+    setHasKey(!!getStoredConfig());
+    // If we have a pending image, process it now
+    if (pendingImage.current) {
+      const img = pendingImage.current;
+      pendingImage.current = null;
+      processImage(img);
+    }
+  }, [processImage]);
 
   if (detailMealId) {
     return <MealDetail mealId={detailMealId} onClose={() => setDetailMealId(null)} />;
@@ -85,13 +116,37 @@ export function Nutrition() {
         {/* ── Header ── */}
         <div className="relative">
           <div className="pointer-events-none absolute -right-16 -top-12 h-40 w-56 rounded-full bg-emerald-500/10 blur-[80px]" />
-          <div className="relative">
-            <h2 className="text-xl font-bold text-white">Nutrition</h2>
-            <p className="text-[11px] text-neutral-500">
-              Scan meals to track your daily intake
-            </p>
+          <div className="relative flex items-start justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Nutrition</h2>
+              <p className="text-[11px] text-neutral-500">
+                Scan meals to track your daily intake
+              </p>
+            </div>
+            {/* API key settings button */}
+            <button
+              onClick={() => setShowSetup(true)}
+              className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-white/5"
+              title="AI Settings"
+            >
+              <KeyIcon className={`h-4 w-4 ${hasKey ? "text-emerald-400" : "text-neutral-600"}`} />
+            </button>
           </div>
         </div>
+
+        {/* ── Error banner ── */}
+        {scanError && (
+          <div className="flex items-center gap-3 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
+            <span className="text-sm">⚠️</span>
+            <p className="flex-1 text-xs text-red-300">{scanError}</p>
+            <button
+              onClick={() => setScanError(null)}
+              className="text-xs text-neutral-500 hover:text-neutral-300"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* ── Daily Summary Card ── */}
         <div className="card relative overflow-hidden">
@@ -195,6 +250,14 @@ export function Nutrition() {
 
       {/* Scanning overlay */}
       {scanning && <ScanningOverlay />}
+
+      {/* API key setup modal */}
+      {showSetup && (
+        <ApiKeySetup
+          onDone={handleKeySetupDone}
+          onClose={() => setShowSetup(false)}
+        />
+      )}
     </>
   );
 }
@@ -863,8 +926,165 @@ function guesseMealType(): MealType {
 }
 
 // ============================================================================
+// API Key Setup Modal
+// ============================================================================
+
+function ApiKeySetup({
+  onDone,
+  onClose,
+}: {
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const existing = getStoredConfig();
+  const [provider, setProvider] = useState<AiProvider>(existing?.provider ?? "gemini");
+  const [key, setKey] = useState(existing?.apiKey ?? "");
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    const trimmed = key.trim();
+    if (!trimmed) {
+      setError("Please enter an API key.");
+      return;
+    }
+    setTesting(true);
+    setError(null);
+
+    // Quick validation — just save it, the actual test happens on first scan
+    setStoredConfig({ provider, apiKey: trimmed });
+    setTesting(false);
+    onDone();
+  };
+
+  const handleDisconnect = () => {
+    clearStoredConfig();
+    setKey("");
+    onDone();
+  };
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl space-y-4 rounded-t-3xl p-5"
+        style={{
+          background: "linear-gradient(180deg, #1e1e1e 0%, #141414 100%)",
+          paddingBottom: "calc(2rem + var(--safe-bottom, 0px))",
+          animation: "slideUp 0.3s ease-out",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-neutral-700" />
+
+        <div className="text-center">
+          <h3 className="text-base font-semibold text-white">AI Meal Analysis</h3>
+          <p className="mt-1 text-xs text-neutral-500">
+            Connect an AI provider to analyze your meal photos
+          </p>
+        </div>
+
+        {/* Provider selection */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setProvider("gemini")}
+            className={`rounded-xl p-3 text-left ring-1 transition ${
+              provider === "gemini"
+                ? "bg-emerald-500/10 ring-emerald-500"
+                : "bg-neutral-900 ring-neutral-800 hover:bg-neutral-800"
+            }`}
+          >
+            <div className="text-sm font-semibold text-white">Google Gemini</div>
+            <div className="mt-0.5 text-[10px] text-emerald-400 font-semibold">FREE</div>
+          </button>
+          <button
+            onClick={() => setProvider("openai")}
+            className={`rounded-xl p-3 text-left ring-1 transition ${
+              provider === "openai"
+                ? "bg-emerald-500/10 ring-emerald-500"
+                : "bg-neutral-900 ring-neutral-800 hover:bg-neutral-800"
+            }`}
+          >
+            <div className="text-sm font-semibold text-white">OpenAI</div>
+            <div className="mt-0.5 text-[10px] text-neutral-500">Paid API</div>
+          </button>
+        </div>
+
+        {/* Instructions */}
+        <div className="rounded-xl bg-neutral-900/60 p-3 ring-1 ring-neutral-800">
+          {provider === "gemini" ? (
+            <div className="space-y-1.5 text-xs text-neutral-400">
+              <p className="font-medium text-neutral-300">How to get a free key:</p>
+              <p>1. Go to <span className="font-mono text-emerald-400">aistudio.google.com/apikey</span></p>
+              <p>2. Sign in with your Google account</p>
+              <p>3. Click <span className="text-neutral-300">"Create API Key"</span></p>
+              <p>4. Copy and paste it below</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5 text-xs text-neutral-400">
+              <p className="font-medium text-neutral-300">How to get a key:</p>
+              <p>1. Go to <span className="font-mono text-sky-400">platform.openai.com/api-keys</span></p>
+              <p>2. Create a new secret key</p>
+              <p>3. Copy and paste it below</p>
+            </div>
+          )}
+        </div>
+
+        {/* API key input */}
+        <input
+          type="password"
+          value={key}
+          onChange={(e) => { setKey(e.target.value); setError(null); }}
+          placeholder={provider === "gemini" ? "AIza..." : "sk-..."}
+          className="input text-sm"
+          autoComplete="off"
+        />
+
+        {error && (
+          <p className="text-xs text-red-400">{error}</p>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2">
+          {existing && (
+            <button onClick={handleDisconnect} className="btn-ghost flex-1 text-red-400">
+              Disconnect
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={testing || !key.trim()}
+            className="btn-primary flex-[2]"
+          >
+            {testing ? "Testing..." : "Connect"}
+          </button>
+        </div>
+
+        <button
+          onClick={onClose}
+          className="w-full py-2 text-center text-sm text-neutral-500 transition hover:text-neutral-300"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ============================================================================
 // Icons
 // ============================================================================
+
+function KeyIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+    </svg>
+  );
+}
 
 function CameraIcon({ className = "" }: { className?: string }) {
   return (
