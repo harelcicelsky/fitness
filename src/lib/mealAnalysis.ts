@@ -113,6 +113,36 @@ export function clearStoredConfig() {
   }
 }
 
+/** Test if an API key is valid with a tiny text-only request (minimal quota). */
+export async function testApiKey(provider: AiProvider, apiKey: string): Promise<string | null> {
+  try {
+    if (provider === "gemini") {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent("Reply with only the word OK");
+      const text = result.response.text();
+      if (text) return null; // success
+      return "Empty response — key may be invalid";
+    } else {
+      const response = await fetch("https://api.openai.com/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (response.ok) return null; // success
+      if (response.status === 401) return "Invalid API key";
+      return `OpenAI error: HTTP ${response.status}`;
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
+      return "Invalid API key. Please check and try again.";
+    }
+    if (msg.includes("429") || msg.includes("quota")) {
+      return "API quota exceeded. Go to aistudio.google.com/apikey → Create API key in a NEW project.";
+    }
+    return msg;
+  }
+}
+
 // ── Google Gemini Flash (FREE) — using official SDK ─────────────────────────
 
 async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
@@ -144,6 +174,10 @@ async function analyzeWithGemini(base64: string, mimeType: string, apiKey: strin
 
     if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
       throw new Error("INVALID_API_KEY");
+    }
+
+    if (msg.includes("429") || msg.includes("quota")) {
+      throw new Error("QUOTA_EXCEEDED");
     }
 
     // Pass the real error through

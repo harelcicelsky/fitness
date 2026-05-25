@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { v4 as uuid } from "uuid";
 import { db } from "../db/schema";
 import { compressImage } from "../lib/imageUtils";
-import { analyzeMeal, computeTotals, getStoredConfig, setStoredConfig, clearStoredConfig } from "../lib/mealAnalysis";
+import { analyzeMeal, computeTotals, getStoredConfig, setStoredConfig, clearStoredConfig, testApiKey } from "../lib/mealAnalysis";
 import { MacroRing } from "../components/MacroRing";
 import { formatDate } from "../lib/format";
 import type { AnalysisResult, AiProvider } from "../lib/mealAnalysis";
@@ -58,11 +58,12 @@ export function Nutrition() {
         pendingImage.current = file;
         setShowSetup(true);
       } else if (msg === "INVALID_API_KEY") {
-        setScanError("Invalid API key. Tap the key icon to update it.");
+        setScanError("Invalid API key. Tap the 🔑 icon to update it.");
+      } else if (msg === "QUOTA_EXCEEDED") {
+        setScanError("Free API quota exceeded. Tap the 🔑 icon → Disconnect → then create a NEW key at aistudio.google.com/apikey (select 'Create API key in new project').");
       } else if (msg === "NO_FOODS_DETECTED") {
         setScanError("Couldn't detect any food in this image. Try a clearer photo.");
       } else {
-        // Show the real error so we can debug
         setScanError(`Analysis failed: ${msg}`);
       }
     } finally {
@@ -951,7 +952,14 @@ function ApiKeySetup({
     setTesting(true);
     setError(null);
 
-    // Quick validation — just save it, the actual test happens on first scan
+    // Actually test the key before saving
+    const testResult = await testApiKey(provider, trimmed);
+    if (testResult) {
+      setError(testResult);
+      setTesting(false);
+      return;
+    }
+
     setStoredConfig({ provider, apiKey: trimmed });
     setTesting(false);
     onDone();

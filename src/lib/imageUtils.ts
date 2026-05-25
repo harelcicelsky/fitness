@@ -5,8 +5,8 @@
  * Uses a regular <canvas> (not OffscreenCanvas) for maximum mobile compatibility.
  */
 
-const MAX_DIMENSION = 1024;
-const JPEG_QUALITY = 0.7;
+const MAX_DIMENSION = 512;
+const JPEG_QUALITY = 0.6;
 
 /** Compress an image file/blob to a base64 JPEG data-URL. */
 export async function compressImage(file: File | Blob): Promise<string> {
