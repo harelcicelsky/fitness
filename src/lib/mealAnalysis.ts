@@ -1,13 +1,14 @@
 /**
  * Meal analysis service — AI-powered food detection & nutrition estimation.
  *
- * Uses Google Gemini Flash (free) or OpenAI Vision to actually analyze
- * the meal photo and return real nutritional data.
+ * Uses Google Gemini Flash (free) via the official @google/generative-ai SDK,
+ * or OpenAI Vision as an alternative.
  *
  * The user provides their own API key (stored in localStorage).
  * Gemini is recommended — completely free at https://aistudio.google.com/apikey
  */
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { DetectedFood, MealNutrition } from "../types";
 import { dataUrlToBase64, getMimeType } from "./imageUtils";
 
@@ -112,65 +113,42 @@ export function clearStoredConfig() {
   }
 }
 
-// ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
+// ── Google Gemini Flash (FREE) — using official SDK ─────────────────────────
 
 async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
-  // Use gemini-2.0-flash — the most reliable free model
-  const model = "gemini-2.0-flash";
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: NUTRITION_PROMPT },
-              { inlineData: { mimeType, data: base64 } },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 2048,
+    const result = await model.generateContent([
+      NUTRITION_PROMPT,
+      {
+        inlineData: {
+          mimeType,
+          data: base64,
         },
-      }),
-    },
-  );
+      },
+    ]);
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
+    const response = result.response;
+    const text = response.text();
 
-    // Invalid API key
-    if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
+    if (!text) {
+      throw new Error("Empty response from AI. Try a different photo.");
+    }
+
+    return parseJsonResponse(text);
+  } catch (e: unknown) {
+    // Re-throw with a cleaner message
+    const msg = e instanceof Error ? e.message : String(e);
+
+    if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
       throw new Error("INVALID_API_KEY");
     }
 
-    // Show the real Google error so we can debug
-    let errMessage = `HTTP ${response.status}`;
-    try {
-      const errJson = JSON.parse(errBody);
-      errMessage = errJson?.error?.message || errMessage;
-    } catch { /* use default */ }
-
-    throw new Error(errMessage);
+    // Pass the real error through
+    throw new Error(msg);
   }
-
-  const data = await response.json();
-
-  // Check for blocked responses
-  if (data.candidates?.[0]?.finishReason === "SAFETY") {
-    throw new Error("Image was blocked by safety filters. Try a different photo.");
-  }
-
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  if (!text) {
-    throw new Error("Empty response from AI. Try a different photo.");
-  }
-
-  return parseJsonResponse(text);
 }
 
 // ── OpenAI Vision ───────────────────────────────────────────────────────────

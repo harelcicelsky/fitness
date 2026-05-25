@@ -9,6 +9,30 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icons/icon.svg"],
+      workbox: {
+        // Force the new service worker to activate immediately
+        skipWaiting: true,
+        clientsClaim: true,
+        // Use NetworkFirst for JS/CSS so the latest version is always fetched
+        runtimeCaching: [
+          {
+            urlPattern: /\.(?:js|css)$/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "app-assets",
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 }, // 1 hour
+            },
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images",
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 }, // 1 week
+            },
+          },
+        ],
+      },
       manifest: {
         name: "Workout Tracker",
         short_name: "Lifts",
