@@ -115,89 +115,62 @@ export function clearStoredConfig() {
 // ── Google Gemini Flash (FREE) ──────────────────────────────────────────────
 
 async function analyzeWithGemini(base64: string, mimeType: string, apiKey: string): Promise<DetectedFood[]> {
-  // Try current Gemini models — only fall back if model doesn't exist
-  const models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"];
-  let lastError = "";
+  // Use gemini-2.0-flash — the most reliable free model
+  const model = "gemini-2.0-flash";
 
-  for (const model of models) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: NUTRITION_PROMPT },
-                  { inlineData: { mimeType, data: base64 } },
-                ],
-              },
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: NUTRITION_PROMPT },
+              { inlineData: { mimeType, data: base64 } },
             ],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 2048,
-            },
-          }),
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 2048,
         },
-      );
+      }),
+    },
+  );
 
-      if (!response.ok) {
-        const errBody = await response.text().catch(() => "");
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => "");
 
-        // Parse the error details
-        let errMessage = `HTTP ${response.status}`;
-        try {
-          const errJson = JSON.parse(errBody);
-          errMessage = errJson?.error?.message || errMessage;
-        } catch { /* use default */ }
-
-        // Invalid API key — stop immediately
-        if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
-          throw new Error("INVALID_API_KEY");
-        }
-
-        // Rate limit / quota exceeded — stop immediately, don't burn more quota
-        if (response.status === 429 || errBody.includes("quota") || errBody.includes("rate limit")) {
-          throw new Error("You've hit the free API rate limit. Wait 1 minute and try again.");
-        }
-
-        // Model not found — try next model
-        if (response.status === 404 || errBody.includes("not found")) {
-          lastError = errMessage;
-          continue;
-        }
-
-        // Any other error — stop, don't retry
-        throw new Error(errMessage);
-      }
-
-      const data = await response.json();
-
-      // Check for blocked / empty responses
-      if (data.candidates?.[0]?.finishReason === "SAFETY") {
-        throw new Error("Image was blocked by safety filters. Try a different photo.");
-      }
-
-      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      if (!text) {
-        lastError = "Empty response from AI";
-        continue;
-      }
-
-      return parseJsonResponse(text);
-    } catch (e) {
-      if (e instanceof Error) {
-        // Don't retry errors that aren't "model not found"
-        if (e.message !== lastError) throw e;
-      }
-      lastError = e instanceof Error ? e.message : "Unknown error";
-      continue;
+    // Invalid API key
+    if (errBody.includes("API_KEY_INVALID") || errBody.includes("API key not valid")) {
+      throw new Error("INVALID_API_KEY");
     }
+
+    // Show the real Google error so we can debug
+    let errMessage = `HTTP ${response.status}`;
+    try {
+      const errJson = JSON.parse(errBody);
+      errMessage = errJson?.error?.message || errMessage;
+    } catch { /* use default */ }
+
+    throw new Error(errMessage);
   }
 
-  throw new Error(lastError || "All Gemini models failed");
+  const data = await response.json();
+
+  // Check for blocked responses
+  if (data.candidates?.[0]?.finishReason === "SAFETY") {
+    throw new Error("Image was blocked by safety filters. Try a different photo.");
+  }
+
+  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  if (!text) {
+    throw new Error("Empty response from AI. Try a different photo.");
+  }
+
+  return parseJsonResponse(text);
 }
 
 // ── OpenAI Vision ───────────────────────────────────────────────────────────
