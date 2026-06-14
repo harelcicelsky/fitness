@@ -8,6 +8,7 @@ import { Nutrition } from "./screens/Nutrition";
 import { Templates } from "./screens/Templates";
 import { Settings as SettingsScreen } from "./screens/Settings";
 import { db, ensureInit } from "./db/schema";
+import { startReminderScheduler, stopReminderScheduler } from "./lib/notifications";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("today");
@@ -21,9 +22,15 @@ export default function App() {
       if (!profile || profile.completedAt === null) {
         setScreen("templates");
       }
+      // Start Friday reminder if enabled
+      const settings = await db.settings.get("settings");
+      if (settings?.fridayReminder) {
+        startReminderScheduler();
+      }
     })();
     return () => {
       cancelled = true;
+      stopReminderScheduler();
     };
   }, []);
 

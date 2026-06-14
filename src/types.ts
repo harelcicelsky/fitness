@@ -86,6 +86,7 @@ export interface Settings {
   restTimerDefaultSec: number;
   autoStartRestTimer: boolean;
   useRpeOrRir: "rpe" | "rir" | "off";
+  fridayReminder: boolean;
 }
 
 export type SplitType =

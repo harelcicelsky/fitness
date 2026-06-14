@@ -140,6 +140,29 @@ export class WorkoutDB extends Dexie {
       profile: "id",
       meals: "id, date, mealType, createdAt",
     });
+
+    // v7: add fridayReminder setting.
+    this.version(7)
+      .stores({
+        exercises: "id, name, category",
+        workouts: "id, date, startedAt",
+        blocks: "id, workoutId, order",
+        sets: "id, workoutId, blockId, exerciseId, parentSetId, completedAt",
+        cardioSessions: "id, workoutId, blockId, exerciseId, completedAt",
+        bodyWeight: "id, date, recordedAt",
+        templates: "id, name",
+        settings: "id",
+        profile: "id",
+        meals: "id, date, mealType, createdAt",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("settings")
+          .toCollection()
+          .modify((s: Record<string, unknown>) => {
+            if (s.fridayReminder === undefined) s.fridayReminder = false;
+          });
+      });
   }
 }
 
@@ -164,6 +187,7 @@ async function init() {
       restTimerDefaultSec: 120,
       autoStartRestTimer: false,
       useRpeOrRir: "rpe",
+      fridayReminder: false,
     });
   }
 }
